@@ -10,12 +10,14 @@ TEAM_NAMES = ("Najmi", "Qayyum", "Khalif", "Nazir")
 def main():
     root = tk.Tk()
     root.title("IKB21303 Assignment 2 - Steganography and Analyzer Tool")
-    root.geometry("1000x680")
+    root.geometry("1300x820")
 
     root.columnconfigure(0, weight=1)
     root.columnconfigure(1, weight=1)
     root.rowconfigure(0, weight=1)
 
+    # Left = build the stego image, right = inspect it. Independent panels, no shared state,
+    # so either can be used on its own 
     StegPanel(root).grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
     AnalyzerPanel(root).grid(row=0, column=1, sticky="nsew", padx=8, pady=8)
 

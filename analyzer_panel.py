@@ -19,6 +19,8 @@ class AnalyzerPanel(ttk.LabelFrame):
 
         self.cover_path = None
         self.stego_path = None
+        # Tk only keeps a weak reference to PhotoImage - without holding these ourselves,
+        # the previews would go blank as soon as the garbage collector runs.
         self.cover_thumb = None
         self.stego_thumb = None
 
@@ -42,9 +44,10 @@ class AnalyzerPanel(ttk.LabelFrame):
         self.stego_preview = ttk.Label(self)
         self.stego_preview.grid(row=2, column=1, pady=4)
 
-        ttk.Button(self, text="Compare", command=self._compare).grid(
-            row=3, column=0, columnspan=2, pady=12
-        )
+        button_row = ttk.Frame(self)
+        button_row.grid(row=3, column=0, columnspan=2, pady=12)
+        ttk.Button(button_row, text="Compare", command=self._compare).pack(side="left", padx=4)
+        ttk.Button(button_row, text="Clear", command=self._clear).pack(side="left", padx=4)
 
         self.size_label = ttk.Label(self, text="", justify="left")
         self.size_label.grid(row=4, column=0, columnspan=2, sticky="w", padx=8)
@@ -95,6 +98,8 @@ class AnalyzerPanel(ttk.LabelFrame):
         self._plot_histograms()
 
     def _plot_histograms(self):
+        # .convert("RGB") normalizes both images to the same 3-channel layout regardless of
+        # source mode (RGBA, palette, etc.) so the per-channel histograms below are comparable.
         cover = np.array(Image.open(self.cover_path).convert("RGB"))
         stego = np.array(Image.open(self.stego_path).convert("RGB"))
 
@@ -102,6 +107,8 @@ class AnalyzerPanel(ttk.LabelFrame):
         ax1 = self.figure.add_subplot(1, 2, 1)
         ax2 = self.figure.add_subplot(1, 2, 2)
 
+        # One histogram per image, each overlaying its own R/G/B channel distributions -
+        # this is the rubric's required "visual quality check" evidence (cover vs stego).
         for ax, img, title in ((ax1, cover, "Cover"), (ax2, stego, "Stego")):
             for channel, color in enumerate(("r", "g", "b")):
                 ax.hist(
@@ -112,4 +119,17 @@ class AnalyzerPanel(ttk.LabelFrame):
             ax.set_xlim(0, 255)
 
         self.figure.tight_layout()
+        self.canvas.draw()
+
+    def _clear(self):
+        self.cover_path = None
+        self.stego_path = None
+        self.cover_thumb = None
+        self.stego_thumb = None
+        self.cover_label.config(text="No cover image loaded")
+        self.stego_label.config(text="No stego image loaded")
+        self.cover_preview.config(image="")
+        self.stego_preview.config(image="")
+        self.size_label.config(text="")
+        self.figure.clear()
         self.canvas.draw()
