@@ -7,9 +7,9 @@ from PIL import Image, ImageTk
 
 import stego
 
-# Cover images are restricted to PNG/BMP (lossless) - JPEG's lossy compression rewrites
-# pixel bytes on save and would destroy LSB-hidden data.
-COVER_FILETYPES = [("PNG/BMP images", "*.png *.bmp")]
+# Project scope is PNG only - JPEG's lossy compression rewrites pixel bytes on save and
+# would destroy LSB-hidden data; PNG keeps things simple with one lossless format.
+COVER_FILETYPES = [("PNG images", "*.png")]
 SECRET_FILETYPES = [("Supported files", "*.txt *.pdf *.doc *.docx *.png *.jpg *.jpeg")]
 THUMB_SIZE = (160, 160)
 

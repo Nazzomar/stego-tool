@@ -9,7 +9,7 @@ from PIL import Image, ImageTk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-IMAGE_FILETYPES = [("Image files", "*.png *.bmp *.jpg *.jpeg")]
+IMAGE_FILETYPES = [("PNG images", "*.png")]
 THUMB_SIZE = (150, 150)
 
 

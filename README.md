@@ -58,7 +58,7 @@ python main.py
 ## Project layout
 
 - `main.py` - window setup, splits the app into the two panels below.
-- `stego_panel.py` - **left panel** UI: pick a cover image (PNG/BMP only - JPG's lossy compression
+- `stego_panel.py` - **left panel** UI: pick a cover image (PNG only - JPG's lossy compression
   would corrupt LSB data) and a secret file, Embed/Extract buttons. Calls into `stego.py`.
 - `stego.py` - the actual LSB embed/extract logic. **Not implemented yet** - `embed_secret()` and
   `extract_secret()` are stubs (`raise NotImplementedError`) ready to be filled in.
@@ -69,8 +69,9 @@ python main.py
 
 ## Design notes
 
-- **Cover images restricted to PNG/BMP.** LSB embedding depends on exact pixel byte values; JPEG's
-  lossy compression rewrites those bytes on save and would destroy the hidden data.
+- **Project scope is PNG only.** LSB embedding depends on exact pixel byte values; JPEG's lossy
+  compression rewrites those bytes on save and would destroy the hidden data. BMP would also work
+  losslessly, but PNG alone keeps the tool and the report's format-specific explanations simpler.
 - **Capacity is checked before embedding**, not discovered mid-write: the tool compares the secret
   file's size against the cover image's max capacity (width x height x channels, 1 bit each) and
   refuses with a clear error if it won't fit.
