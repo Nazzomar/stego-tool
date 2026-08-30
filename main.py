@@ -9,7 +9,7 @@ TEAM_NAMES = ("Najmi", "Qayyum", "Khalif", "Nazir")
 
 def main():
     root = tk.Tk()
-    root.title("IKB21303 Assignment 2")
+    root.title("IKB21303 Assignment 2 — Steganography and Analyzer Tool")
     root.geometry("1000x680")
 
     root.columnconfigure(0, weight=1)
