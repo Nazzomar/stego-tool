@@ -6,3 +6,4 @@ venv/
 build/
 dist/
 tmp/
+NOTES_recommendations.md

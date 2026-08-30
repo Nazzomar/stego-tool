@@ -49,10 +49,16 @@ class AnalyzerPanel(ttk.LabelFrame):
         ttk.Button(button_row, text="Compare", command=self._compare).pack(side="left", padx=4)
         ttk.Button(button_row, text="Clear", command=self._clear).pack(side="left", padx=4)
 
-        self.size_label = ttk.Label(self, text="", justify="left")
-        self.size_label.grid(row=4, column=0, columnspan=2, sticky="w", padx=8)
+        # Bordered box + larger bold font so the size comparison reads clearly from a
+        # distance during the demo, not just a plain inline label.
+        size_box = ttk.Frame(self, relief="groove", borderwidth=2)
+        size_box.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=(4, 8))
+        self.size_label = ttk.Label(
+            size_box, text="", justify="left", font=("TkDefaultFont", 12, "bold"), padding=8
+        )
+        self.size_label.pack(fill="x")
 
-        self.figure = Figure(figsize=(4.5, 2.8), dpi=90)
+        self.figure = Figure(figsize=(7.5, 4.2), dpi=95)
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
         self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=2, pady=8)
 
