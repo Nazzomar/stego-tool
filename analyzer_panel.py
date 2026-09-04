@@ -1,5 +1,4 @@
-"""Right panel: the analyzer UI. Cover and stego images are loaded independently (manual load),
-not auto-filled from the steganography panel, so past image pairs can be re-analyzed too."""
+"""Right panel: the analyzer UI. Cover and stego images are loaded independently."""
 import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -9,7 +8,12 @@ from PIL import Image, ImageTk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-IMAGE_FILETYPES = [("PNG images", "*.png")]
+IMAGE_FILETYPES = [
+    ("All Images", "*.png *.jpg *.jpeg *.bmp *.webp *.tiff *.tif"),
+    ("PNG images (*.png)", "*.png"),
+    ("JPEG images (*.jpg, *.jpeg)", "*.jpg *.jpeg"),
+    ("All files", "*.*"),
+]
 THUMB_SIZE = (150, 150)
 
 
@@ -19,8 +23,6 @@ class AnalyzerPanel(ttk.LabelFrame):
 
         self.cover_path = None
         self.stego_path = None
-        # Tk only keeps a weak reference to PhotoImage - without holding these ourselves,
-        # the previews would go blank as soon as the garbage collector runs.
         self.cover_thumb = None
         self.stego_thumb = None
 
@@ -49,8 +51,6 @@ class AnalyzerPanel(ttk.LabelFrame):
         ttk.Button(button_row, text="Compare", command=self._compare).pack(side="left", padx=4)
         ttk.Button(button_row, text="Clear", command=self._clear).pack(side="left", padx=4)
 
-        # Bordered box + larger bold font so the size comparison reads clearly from a
-        # distance during the demo, not just a plain inline label.
         size_box = ttk.Frame(self, relief="groove", borderwidth=2)
         size_box.grid(row=4, column=0, columnspan=2, sticky="ew", padx=8, pady=(4, 8))
         self.size_label = ttk.Label(
@@ -104,25 +104,29 @@ class AnalyzerPanel(ttk.LabelFrame):
         self._plot_histograms()
 
     def _plot_histograms(self):
-        # .convert("RGB") normalizes both images to the same 3-channel layout regardless of
-        # source mode (RGBA, palette, etc.) so the per-channel histograms below are comparable.
-        cover = np.array(Image.open(self.cover_path).convert("RGB"))
-        stego = np.array(Image.open(self.stego_path).convert("RGB"))
+        cover = np.array(Image.open(self.cover_path).convert("RGB"), dtype=np.uint8)
+        stego = np.array(Image.open(self.stego_path).convert("RGB"), dtype=np.uint8)
+
+        diff = np.abs(stego.astype(np.int16) - cover.astype(np.int16))
+        changed_pixels_mask = np.any(diff > 0, axis=2)
+        total_pixels = cover.shape[0] * cover.shape[1]
+        changed_count = np.count_nonzero(changed_pixels_mask)
+        pct = (changed_count / total_pixels) * 100
+
+        cover_lsb = (cover & 1) * 255
+        stego_lsb = (stego & 1) * 255
 
         self.figure.clear()
         ax1 = self.figure.add_subplot(1, 2, 1)
         ax2 = self.figure.add_subplot(1, 2, 2)
 
-        # One histogram per image, each overlaying its own R/G/B channel distributions -
-        # this is the rubric's required "visual quality check" evidence (cover vs stego).
-        for ax, img, title in ((ax1, cover, "Cover"), (ax2, stego, "Stego")):
-            for channel, color in enumerate(("r", "g", "b")):
-                ax.hist(
-                    img[:, :, channel].ravel(), bins=256, range=(0, 255),
-                    color=color, alpha=0.5, histtype="step",
-                )
-            ax.set_title(title)
-            ax.set_xlim(0, 255)
+        ax1.imshow(cover_lsb)
+        ax1.set_title("Cover Image (LSB Plane)")
+        ax1.axis("off")
+
+        ax2.imshow(stego_lsb)
+        ax2.set_title(f"Stego Image (Modified: {changed_count:,} px / {pct:.2f}%)")
+        ax2.axis("off")
 
         self.figure.tight_layout()
         self.canvas.draw()

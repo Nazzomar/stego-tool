@@ -5,31 +5,26 @@ secret files inside a cover image and analyzes the result. Group project, 50 mar
 
 ## What it does
 
-- **Embed:** hide a secret file (`.txt`, `.pdf`, `.doc`, `.png`, `.jpg`) inside a cover image using
-  LSB (least significant bit) substitution, save the result as a stego image.
-- **Extract:** recover the hidden file back out of a stego image.
-- **Analyze:** compare a cover/stego image pair - RGB channel histograms and file size, with an
-  explanation of why the size stayed the same or changed.
+1. Embed secret files: Hide different file types (.txt, .pdf, .doc/.docx, .png, .jpg) inside a cover image using sequential 1-bit LSB (Least Significant Bit) replacement, then save the output as a clean lossless
+2. Extract hidden files: Automatically read the hidden header (magic signature, file size, original extension) and extract the exact file back out without losing its original format.
+3. Analyze cover vs. stego images: Compare the original and stego images side-by-side:
+	- File size on disk and size difference calculation.
+	- LSB bit-plane visualizer that amplifies the lowest bits ($255 \times \text{LSB}$) to show the exact modified area versus the original image.
+	- Pixel statistics showing the total number of changed pixels and percentage of capacity used.
 
 ## Tech stack
 
 - **Language:** Python 3
-- **GUI:** `tkinter` / `ttk` (stdlib - no separate frontend, no web server, no deployment needed)
-- **Image I/O + pixel access:** [Pillow](https://python-pillow.org/) (PIL)
-- **Histogram plotting:** [matplotlib](https://matplotlib.org/), embedded in the Tk window via
-  `FigureCanvasTkAgg`
-- **Array/bit manipulation:** [numpy](https://numpy.org/)
-- **Packaging (optional, for the demo):** [PyInstaller](https://pyinstaller.org/) to build a
-  standalone `.exe`
-
-It's a local desktop app, not a website - no backend, database, or hosting involved. Built and
-tested on Windows; runs unmodified on Linux/macOS as long as Tk is available (see Setup).
+- **GUI:** `tkinter` / `ttk` (built-in Python GUI library, so no extra web frameworks or complex setups needed)
+- **Image processing:** [Pillow](https://python-pillow.org/) (PIL) for opening, converting, and saving images
+- **Visualization:** [matplotlib](https://matplotlib.org/), embedded into Tkinter using `FigureCanvasTkAgg` to plot the analysis graphs
+- **Bit & array operations:** [numpy](https://numpy.org/) for fast pixel manipulation and bit unpacking/packing
 
 ## Setup
 
 ### Windows
 
-Tk is bundled with the standard Python installer, so no extra steps.
+Tkinter is already installed with Python on Windows. Just run:
 
 ```
 pip install -r requirements.txt
@@ -38,7 +33,7 @@ python main.py
 
 ### Linux
 
-Tk is usually not bundled - install it via your distro's package manager first.
+If Tkinter is missing on your distribution, install it first:
 
 ```
 # Arch
@@ -48,42 +43,48 @@ sudo pacman -S tk
 sudo apt install python3-tk
 ```
 
-Then the same as Windows:
+Then start the application:
 
 ```
 pip install -r requirements.txt
 python main.py
 ```
 
-## Project layout
+## Project structure
 
-- `main.py` - window setup, splits the app into the two panels below.
-- `stego_panel.py` - **left panel** UI: pick a cover image (PNG only - JPG's lossy compression
-  would corrupt LSB data) and a secret file, Embed/Extract buttons. Calls into `stego.py`.
-- `stego.py` - the actual LSB embed/extract logic. **Not implemented yet** - `embed_secret()` and
-  `extract_secret()` are stubs (`raise NotImplementedError`) ready to be filled in.
-- `analyzer_panel.py` - **right panel** UI: manually load a cover and a stego image (independent of
-  the left panel, so any past pair can be re-analyzed), compare file size, plot histograms. Fully
-  working already.
-- `requirements.txt` - pinned dependencies.
+- `main.py` - Sets up the main window and splits the screen into two separate panels (left for steganography, right for analysis).
+- `stego_panel.py` - Handles the Steganography Tool tab on the left:
+	-> Lets users browse cover images and secret files (.txt, .pdf, .doc, .png, .jpg)
+	-> Includes embed and extract buttons with clear status messages.
+- `stego.py` - The core steganography logic:
+	-> Reads the payload in raw bytes so any file format can be hidden.
+	-> Adds a custom header (STEG signature + length + extension) before the secret data so we know what file to extract later.
+	-> Uses 8-bit unsigned masks (0xFE) to avoid -2 integer overflow errors when modifying pixel bits.
+- `analyzer_panel.py` - Handles the Analyzer tab on the right:
+	-> Loads cover and stego images independently to compare past work.
+	-> Calculates file size differences on disk.
+	-> Renders the LSB plane to highlight exactly where data was written.
+- `requirements.txt` - Lists the Python libraries we used (Pillow, numpy, matplotlib).
 
 ## Design notes
 
-- **Project scope is PNG only.** LSB embedding depends on exact pixel byte values; JPEG's lossy
-  compression rewrites those bytes on save and would destroy the hidden data. BMP would also work
-  losslessly, but PNG alone keeps the tool and the report's format-specific explanations simpler.
-- **Capacity is checked before embedding**, not discovered mid-write: the tool compares the secret
-  file's size against the cover image's max capacity (width x height x channels, 1 bit each) and
-  refuses with a clear error if it won't fit.
-- **Analyzer is decoupled from the Steg Tool panel** - it doesn't auto-load whatever the left panel
-  just produced. You load cover/stego images into it manually, which also makes it useful for
-  re-checking older results.
+1. Why cover images can be anything, but stego must be PNG:
+	- We allowed multiple input image types (.jpg, .png, .bmp, etc.) so the user has flexibility when picking a cover picture.
+	- However, the stego image must be saved as a lossless .png. If saved as a JPEG, lossy compression modifies pixel values when writing to disk, which immediately corrupts our embedded LSB data.
+2. Raw binary reading:
+	- SBy reading files using "rb" and writing using "wb", the program treats text files, PDFs, Word documents, and images identically as pure binary data.
+3. Saving the file extension:
+	- Because we store the original extension inside our custom header, the user does not have to guess whether the extracted file was a .pdf or a .txt during recovery.
+4. Capacity check:
+	- The program multiplies $\text{width} \times \text{height} \times 3 \text{ channels}$ to calculate the maximum number of bits available before attempting to embed. If the file is too big for the image, it stops and displays an error message.
+5. Why normal histograms look identical:
+	- Changing the last bit alters a pixel value by only $+1$ or $-1$ out of 255. Because human eyes and standard histogram bins cannot easily spot a 1-value shift, the visual quality check uses an amplified LSB bit-plane to clearly show the altered pixel noise.  
 
-## Status
+## Project status
 
-- Analyzer: done.
-- Steg tool UI: done, wired to `stego.py`'s stubs.
-- Steg tool logic (`stego.py`): TODO.
+- Steg Tool Logic (stego.py): Completed (embedding, extraction, and header handling).
+- Steg Tool UI (stego_panel.py): Completed (file filters added and connected to backend).
+- Analyzer (analyzer_panel.py): Completed (size comparison and LSB plane visualizer working).
 
 ## Team
 

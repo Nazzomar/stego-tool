@@ -1,4 +1,4 @@
-"""Left panel: the steganography tool UI. Embed/extract logic lives in stego.py (teammate's module)."""
+"""Left panel: the steganography tool UI. Embed/extract logic lives in stego.py."""
 import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -7,18 +7,27 @@ from PIL import Image, ImageTk
 
 import stego
 
-# Project scope is PNG only - JPEG's lossy compression rewrites pixel bytes on save and
-# would destroy LSB-hidden data; PNG keeps things simple with one lossless format.
-COVER_FILETYPES = [("PNG images", "*.png")]
-SECRET_FILETYPES = [("Supported files", "*.txt *.pdf *.doc *.docx *.png *.jpg *.jpeg")]
+COVER_FILETYPES = [
+    ("All Images", "*.png *.jpg *.jpeg *.bmp *.webp *.tiff *.tif"),
+    ("PNG images", "*.png"),
+    ("JPEG images", "*.jpg *.jpeg"),
+    ("BMP images", "*.bmp"),
+    ("WebP images", "*.webp"),
+    ("TIFF images", "*.tiff *.tif"),
+    ("All files", "*.*"),
+]
+
+SECRET_FILETYPES = [
+    ("All Supported Files", "*.txt *.pdf *.doc *.docx *.png *.jpg *.jpeg"),
+    ("Text Files (*.txt)", "*.txt"),
+    ("Document Files (*.pdf, *.doc, *.docx)", "*.pdf *.doc *.docx"),
+    ("Image Files (*.png, *.jpg, *.jpeg)", "*.png *.jpg *.jpeg"),
+    ("All Files", "*.*"),
+]
 THUMB_SIZE = (160, 160)
 
 
 class StegPanel(ttk.LabelFrame):
-    """Container for the two independent sub-workflows: embedding a new stego image, and
-    extracting a payload back out of an existing one. Kept as separate sections (not shared
-    cover/secret fields + two buttons) since they don't operate on the same inputs."""
-
     def __init__(self, parent):
         super().__init__(parent, text="Steganography Tool")
 
@@ -34,7 +43,7 @@ class EmbedSection(ttk.LabelFrame):
 
         self.cover_path = None
         self.secret_path = None
-        self.cover_thumb = None  # keep a reference so Tk doesn't garbage-collect it
+        self.cover_thumb = None
 
         self.columnconfigure(0, weight=1)
 
@@ -77,25 +86,28 @@ class EmbedSection(ttk.LabelFrame):
         if not path:
             return
         self.secret_path = path
-        self.secret_label.config(text=os.path.basename(path))
+        size = os.path.getsize(path)
+        self.secret_label.config(text=f"{os.path.basename(path)} ({size:,} bytes)")
 
     def _embed(self):
         if not self.cover_path or not self.secret_path:
             messagebox.showwarning("Missing input", "Select a cover image and a secret file first.")
             return
         output_path = filedialog.asksaveasfilename(
-            title="Save stego image as", defaultextension=".png", initialfile="stego.png",
-            filetypes=COVER_FILETYPES,
+            title="Save stego image as",
+            defaultextension=".png",
+            initialfile="stego.png",
+            filetypes=[("PNG images (*.png)", "*.png")],
         )
         if not output_path:
             return
         try:
             stego.embed_secret(self.cover_path, self.secret_path, output_path)
-            self.status_label.config(text=f"Embedded. Saved to {output_path}")
-        except NotImplementedError:
-            # stego.py's embed_secret() is a stub until the teammate implements it -
-            # UI stays usable in the meantime instead of crashing.
-            self.status_label.config(text="Embed not implemented yet.")
+            self.status_label.config(text=f"Embedded successfully.\nSaved: {output_path}")
+            messagebox.showinfo("Success", "Secret file successfully embedded!")
+        except Exception as e:
+            self.status_label.config(text=f"Error: {e}")
+            messagebox.showerror("Embedding Error", str(e))
 
     def _clear(self):
         self.cover_path = None
@@ -148,16 +160,30 @@ class ExtractSection(ttk.LabelFrame):
         if not self.stego_path:
             messagebox.showwarning("Missing input", "Select a stego image first.")
             return
-        output_path = filedialog.asksaveasfilename(title="Save extracted file as")
-        if not output_path:
-            return
+
         try:
+            # Check secret info to auto-suggest original extension
+            _, ext = stego.inspect_secret_info(self.stego_path)
+            default_ext = ext if ext else ""
+            default_name = f"extracted_secret{default_ext}"
+            filter_spec = [(f"{default_ext} file", f"*{default_ext}")] if default_ext else []
+            filter_spec.append(("All files", "*.*"))
+
+            output_path = filedialog.asksaveasfilename(
+                title="Save extracted file as",
+                initialfile=default_name,
+                defaultextension=default_ext,
+                filetypes=filter_spec,
+            )
+            if not output_path:
+                return
+
             stego.extract_secret(self.stego_path, output_path)
-            self.status_label.config(text=f"Extracted. Saved to {output_path}")
-        except NotImplementedError:
-            self.status_label.config(text="Extract not implemented yet.")
-            # See NOTES.md for the header-format decisions extract_secret() needs to
-            # agree with embed_secret() on (payload length, filename, etc).
+            self.status_label.config(text=f"Extracted successfully.\nSaved: {output_path}")
+            messagebox.showinfo("Success", f"Secret file saved to:\n{output_path}")
+        except Exception as e:
+            self.status_label.config(text=f"Extraction failed: {e}")
+            messagebox.showerror("Extraction Error", str(e))
 
     def _clear(self):
         self.stego_path = None
