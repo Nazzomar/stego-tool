@@ -104,29 +104,61 @@ class AnalyzerPanel(ttk.LabelFrame):
         self._plot_histograms()
 
     def _plot_histograms(self):
-        cover = np.array(Image.open(self.cover_path).convert("RGB"), dtype=np.uint8)
-        stego = np.array(Image.open(self.stego_path).convert("RGB"), dtype=np.uint8)
+        from scipy.stats import gaussian_kde
 
-        diff = np.abs(stego.astype(np.int16) - cover.astype(np.int16))
-        changed_pixels_mask = np.any(diff > 0, axis=2)
-        total_pixels = cover.shape[0] * cover.shape[1]
-        changed_count = np.count_nonzero(changed_pixels_mask)
-        pct = (changed_count / total_pixels) * 100
-
-        cover_lsb = (cover & 1) * 255
-        stego_lsb = (stego & 1) * 255
+        cover = np.array(Image.open(self.cover_path).convert("RGB"))
+        stego = np.array(Image.open(self.stego_path).convert("RGB"))
 
         self.figure.clear()
         ax1 = self.figure.add_subplot(1, 2, 1)
         ax2 = self.figure.add_subplot(1, 2, 2)
 
-        ax1.imshow(cover_lsb)
-        ax1.set_title("Cover Image (LSB Plane)")
-        ax1.axis("off")
+        channel_styles = [
+            {"label": "Red",   "bar_face": "#7ea6e0", "bar_edge": "#2b4c7e", "line": "#0018d6"},  
+            {"label": "Green", "bar_face": "#e5a19b", "bar_edge": "#80332c", "line": "#b31a1a"}, 
+            {"label": "Blue",  "bar_face": "#94c7b8", "bar_edge": "#295b4e", "line": "#00634f"}, 
+        ]
 
-        ax2.imshow(stego_lsb)
-        ax2.set_title(f"Stego Image (Modified: {changed_count:,} px / {pct:.2f}%)")
-        ax2.axis("off")
+        x_eval = np.linspace(0, 255, 300)
+
+        for ax, img, title in ((ax1, cover, "Cover Image"), (ax2, stego, "Stego Image")):
+            for c, style in enumerate(channel_styles):
+                data = img[:, :, c].ravel()
+
+                sample_data = np.random.choice(data, size=min(15000, len(data)), replace=False)
+
+                weights = np.ones_like(sample_data) * 100.0 / len(sample_data)
+                counts, bin_edges, _ = ax.hist(
+                    sample_data,
+                    bins=32,
+                    range=(0, 255),
+                    weights=weights,
+                    facecolor=style["bar_face"],
+                    edgecolor=style["bar_edge"],
+                    linewidth=0.9,
+                    alpha=0.45,
+                    label=style["label"],
+                )
+
+                kde = gaussian_kde(sample_data)
+                bin_width = bin_edges[1] - bin_edges[0]
+                kde_curve = kde(x_eval) * 100.0 * bin_width
+                ax.plot(x_eval, kde_curve, color=style["line"], linewidth=2.0)
+
+            ax.set_title(f" ({title})", fontsize=11, fontweight="bold", pad=8)
+            ax.set_ylabel("Percent", fontsize=10)
+            ax.set_xlim(0, 255)
+            ax.set_ylim(bottom=0)
+            
+            ax.yaxis.grid(True, linestyle="-", alpha=0.5, color="#d3d9de")
+            ax.xaxis.grid(False)
+            ax.set_axisbelow(True)
+
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#333333")
+                spine.set_linewidth(0.8)
+
+            ax.legend(loc="upper right", frameon=True, edgecolor="#555555", facecolor="#f8f9fa", fontsize=9)
 
         self.figure.tight_layout()
         self.canvas.draw()
